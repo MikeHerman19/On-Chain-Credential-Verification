@@ -1,0 +1,49 @@
+// Based on: https://raw.githubusercontent.com/Zokrates/ZoKrates/a757921bad1bab80aafe2ac7c2caccab88feb9f7/zokrates_cli/examples/merkleTree/sha256PathProof3.zok
+
+import "hashes/sha256/512bitPadded.code" as hash;
+import "hashes/sha256/512bitPadded.code" as sha256;
+
+import "hashes/utils/256bitsDirectionHelper" as multiplex;
+
+from "ecc/babyjubjubParams" import BabyJubJubParams;
+import "signatures/verifyEddsa.code" as verifyEddsa;
+import "ecc/babyjubjubParams.code" as context;
+
+const u32 DEPTH = 3;
+
+def select(bool condition, u32[8] left, u32[8] right) -> (u32[8], u32[8]){
+	return (if condition { right} else {left}, if condition {left} else {right});
+}
+
+// Merke-Tree inclusion proof for tree depth 4 using sha256
+// directionSelector => true if current digest is on the rhs of the hash
+
+def main(private u32[8] leaf, u32[8] root, private bool[DEPTH] directionSelector, private u32[DEPTH][8] path, private field[2] R1, private field S1, field[2] A1, u32[8] M01, u32[8] M11,public u32 [8] dappId, u32 [8] attr1, private u32 [8] vc1, private field[2] R2, private field S2, field[2] A2, u32[8] M02, u32[8] M12) -> (bool, bool, bool, u32[8]){
+	//Verify Signature (R,S) with PupKey (A) on Hash (M0, M1)
+	BabyJubJubParams context = context();
+    bool isVerified1 = verifyEddsa(R1, S1, A1, M01, M11, context);
+    u32[8] hash1 = sha256([0, 0, 0, 0, 0, 0, 0, 0], leaf);
+    bool hashcheck1 = hash1 == M01;
+
+	// Start from the leaf
+	u32[8] mut digest = leaf;
+
+	// Loop up the tree
+	for u32 i in 0..DEPTH{
+		(u32[8], u32[8]) left_right = select(directionSelector[i], digest, path[i]);
+		digest = hash(left_right.0,left_right.1);
+	}
+
+	bool inSet = digest == root;
+
+    bool isVerified2 = verifyEddsa(R2, S2, A2, M02, M12, context);
+
+    u32[8] hash2 = sha256(attr1, vc1);
+    // M0 is the first 32 bytes of sha256(input 1 || vc) || sha256(attr || vc)
+    bool hashcheck2 = hash2 == M02 ;
+
+    // Uniqeness Proof: hash(uuid, dappId)
+    u32[8] finalId = sha256(hash2, dappId);
+
+	return (isVerified1 && isVerified2, hashcheck1 && hashcheck2, inSet, finalId);
+}
