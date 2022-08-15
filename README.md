@@ -3,7 +3,7 @@ Repository in which the Code lies which was used in my Bachelor Thesis "Non-reve
 
 This Repository consits of 3 directories. 
 
-In /stress_tests the Code for the range and set-membership proof with multiply claims can be found 
+In /Stress_tests the Code for the range and set-membership proof with multiply claims can be found 
 
 In /Use_case the Code for the different Use cases can be found 
 
